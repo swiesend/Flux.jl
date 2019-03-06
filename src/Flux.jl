@@ -7,7 +7,7 @@ using MacroTools, Juno, Requires, Reexport, Statistics, Random
 using MacroTools: @forward
 
 export Chain, Dense,
-       RNN, LSTM, PLSTM, FCLSTM, GRU,
+       RNN, LSTM, PLSTM, FCLSTM, GRU, ConvLSTM,
        Conv, ConvTranspose, MaxPool, MeanPool,
        DepthwiseConv, Dropout, LayerNorm, BatchNorm,
        params, mapleaves, cpu, gpu, f32, f64

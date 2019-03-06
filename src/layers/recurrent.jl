@@ -309,3 +309,70 @@ See the following article for internals:
 
 """
 FCLSTM(a...; ka...) = Recur(FullyConnectedLSTMCell(a...; ka...))
+
+# ConvLSTM
+
+mutable struct ConvPeepholeLSTMCell{A,V,C}
+  Wx::A
+  Wc::A
+  b::V
+  h::V
+  c::V
+  conv::C
+end
+
+function ConvPeepholeLSTMCell(in::Integer, out::Integer, σ = identity, conv = Conv;
+  init = glorot_uniform, stride = 1, pad = 0, dilation = 1)
+  cell = ConvPeepholeLSTMCell(
+    param(init(out*4, in)),  # Wx
+    param(init(out*4, out)), # Wc
+    param(zeros(out*4)),     # b
+    param(init(out)),        # h
+    param(init(out)),        # c
+    try
+      conv(
+        param(init(out*4, out)), # Wh
+        param(zeros(out*4)),     # b
+        σ, stride = stride, pad = pad, dilation = dilation)
+    catch
+      conv(
+        param(init(out*4, out)), # Wh
+        param(zeros(out*4)),     # b
+        σ, stride = stride, pad = pad)
+    end
+  )
+  cell.b.data[gate(out, 2)] .= 1
+  cell.conv.bias.data[gate(out, 2)] .= 1
+  return cell
+end
+
+function (m::ConvPeepholeLSTMCell)((h, c), x)
+  o = size(h, 1)
+  g = m.Wx*x .+ m.conv(h) .+ m.Wc*c .+ m.b
+  input = σ.(gate(g, o, 1))
+  forget = σ.(gate(g, o, 2))
+  cell = tanh.(gate(g, o, 3))
+  output = σ.(gate(g, o, 4))
+  c = forget .* c .+ input .* cell
+  h = output .* tanh.(c)
+  return (h, c), h
+end
+
+hidden(m::ConvPeepholeLSTMCell) = (m.h, m.c)
+
+@treelike ConvPeepholeLSTMCell
+
+Base.show(io::IO, l::ConvPeepholeLSTMCell) =
+  print(io, "ConvPeepholeLSTMCell(", size(l.Wx, 2), ", ", size(l.Wx, 1) ÷ 4, ")")
+
+"""
+    ConvLSTM(in::Integer, out::Integer)
+
+A *convolutional* LSTM layer. This layer extends the concept of a *fully connected* LSTM (FC-LSTM) as it makes use
+of both hidden states `h` and `c`.
+
+For internals see:
+
+* [Xingjian Shi; Zhourong Chen; Hao Wang; Dit-Yan Yeung; Wai-kin Wong; Wang-chun Woo (2015). "Convolutional LSTM Network: A Machine Learning Approach for Precipitation Nowcasting". Proceedings of the 28th International Conference on Neural Information Processing Systems: 802–810. arXiv:1506.04214.](https://arxiv.org/pdf/1506.04214.pdf)
+"""
+ConvLSTM(args...; kwargs...) = Recur(ConvPeepholeLSTMCell(args...; kwargs...))
