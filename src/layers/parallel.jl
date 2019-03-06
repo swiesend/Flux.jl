@@ -200,5 +200,7 @@ end
 #  Bidirectional layer of Keras: https://github.com/keras-team/keras/blob/05d713504852b490afcf2607aea1ce923e93ecfe/keras/layers/wrappers.py#L333
 function Bi(layer::Recur; reduce::Function=concat, distributed=false)
     mapping = Dict{Int64,Function}(2 => reverse)
-    Parallel([layer, deepcopy(layer)], map=mapping, inv=mapping, reduce=reduce)
+    Parallel([layer, deepcopy(layer)],
+        map=mapping, inv=mapping, reduce=reduce,
+        distributed=distributed)
 end
