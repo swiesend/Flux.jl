@@ -67,18 +67,18 @@ function (p::Parallel)(xs)
     apply(l) = p.inv[l](p.layers[l](p.map[l](xs)))
     
     # implicit mapping
-    Z = map(l -> apply(l), eachindex(p.layers))
+    # Z = map(l -> apply(l), eachindex(p.layers))
 
     # explicit mapping - preallocated size
-    # first = apply(1)
-    # Z = Vector{typeof(first)}(UndefInitializer(), length(p.layers))
-    # for l in eachindex(p.layers)
-    #     if l == 1
-    #         Z[l] = first
-    #     else
-    #         Z[l] = apply(l)
-    #     end
-    # end
+    first = apply(1)
+    Z = Vector{typeof(first)}(UndefInitializer(), length(p.layers))
+    for l in eachindex(p.layers)
+        if l == 1
+            Z[l] = first
+        else
+            Z[l] = apply(l)
+        end
+    end
 
     p.reduce(Z)
 end

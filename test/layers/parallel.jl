@@ -3,11 +3,11 @@ using Flux
 using Flux: @epochs
 using Statistics: mean
 using Base.Iterators: partition
-
+using CuArrays
 
 @testset "Parallel" begin
 
-    data = collect(partition(rand(10, 7), 10))
+    data = gpu.(collect(partition(rand(10, 7), 10)))
 
     models = [
         # non recurrent layers - the reduce function defaults to `Flux.concat`
@@ -39,6 +39,8 @@ using Base.Iterators: partition
 
     @testset "models using a `Parallel` layer" for (i,m) in enumerate(models)
         println("\n\ntest ($i)\n")
+        
+        gpu(m)
         @show m
 
         before = Flux.data(m(data[1]))
