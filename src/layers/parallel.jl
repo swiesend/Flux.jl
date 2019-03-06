@@ -93,7 +93,7 @@ end
 # NOTE: Instead of generating `Flux.children` and `Flux.mapchildren` with `@treelike` macro, they are defined 
 #       explicity, as `@treelike Parallel layers` is considerd not treelike: `error("@treelike T (a, b)")`
 Flux.children(p::Parallel) = p.layers
-Flux.mapchildren(f, p::Parallel) = Parallel(f.(p.layers), p.map, p.inv, p.reduce)
+Flux.mapchildren(f, p::Parallel) = Parallel(f.(p.layers), p.map, p.inv, p.reduce, p.distributed)
 
 function Base.show(io::IO, m::Parallel)
     print(io, "Parallel(\n")
