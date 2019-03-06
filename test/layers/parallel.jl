@@ -11,30 +11,31 @@ using Base.Iterators: partition
 
     models = [
         # non recurrent layers - the reduce function defaults to `Flux.concat`
-        Chain(Parallel([Dense(10,10), Dense(10,10)]), Dense(20,10)),
+        Chain(Parallel([Dense(10,10), Dense(10,10)], distributed=true), Dense(20,10)),
 
         # recurrent layers
-        Parallel([LSTM(10,10)]),
-        Chain(Parallel([LSTM(10,10)])),
+        Parallel([LSTM(10,10)], distributed=true),
+        Chain(Parallel([LSTM(10,10)], distributed=true)),
 
         # for reduce see: `Base.sum`, `Statistics.mean`, `Flux.mul`, `Flux.concat`
-        Parallel([LSTM(10,5), LSTM(10,5)]),
-        Parallel([LSTM(10,10), LSTM(10,10)], reduce=sum),
-        Chain(Parallel([LSTM(10,10), LSTM(10,10)], reduce=mean)),
+        Parallel([LSTM(10,5), LSTM(10,5)], distributed=true),
+        Parallel([LSTM(10,10), LSTM(10,10)], reduce=sum, distributed=true),
+        Chain(Parallel([LSTM(10,10), LSTM(10,10)], reduce=mean, distributed=true)),
 
         # reduce can be `Flux.concat`. Here the reduction is effectifly done by a final Dense layer:
-        Chain(Parallel([LSTM(10,10)]), Dense(10,10)),
-        Chain(Parallel([LSTM(10,10), LSTM(10,10)]), Dense(20,10)),
+        Chain(Parallel([LSTM(10,10)], distributed=true), Dense(10,10)),
+        Chain(Parallel([LSTM(10,10), LSTM(10,10)], distributed=true), Dense(20,10)),
 
         # bidirectional LSTM
         Parallel([LSTM(10,10), LSTM(10,10)],
             map = Dict{Int64,Function}(2 => reverse),
             inv = Dict{Int64,Function}(2 => reverse),
-            reduce = sum),
+            reduce = sum,
+            distributed = true),
 
         # BiLSTM - a convenience layer, which makes use of `Parallel` and the MapReduce approach
-        Bi(LSTM(10, 10), sum),
-        Chain(Bi(LSTM(10,10), sum)),
+        Bi(LSTM(10, 10), reduce=sum, distributed=true),
+        Chain(Bi(LSTM(10,10), reduce=sum, distributed=true)),
     ]
 
     @testset "models using a `Parallel` layer" for (i,m) in enumerate(models)

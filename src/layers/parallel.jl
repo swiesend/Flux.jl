@@ -1,4 +1,5 @@
-import Flux: Recur
+using Flux: Recur
+using Distributed
 
 function identities(n::Int64)
     fill(identity, n)
@@ -36,13 +37,15 @@ mutable struct Parallel
     map::Vector{Function}
     inv::Vector{Function}
     reduce::Function
+    distributed::Bool
 end
 
 function Parallel(
     layers::Vector;
     map::Dict{Int64,Function} = Dict{Int64,Function}(),
     inv::Dict{Int64,Function} = Dict{Int64,Function}(),
-    reduce::Function = concat)
+    reduce::Function = concat,
+    distributed = false)
 
     mappings::Vector{Function} = identities(length(layers))
     for (k,v) in map
@@ -54,7 +57,7 @@ function Parallel(
         inverses[k] = v
     end
 
-    return Parallel(layers, mappings, inverses, reduce)
+    return Parallel(layers, mappings, inverses, reduce, distributed)
 end
 
 function (p::Parallel)(xs)
@@ -64,10 +67,14 @@ function (p::Parallel)(xs)
 
     # double reverse; analog to `Flux.flip`, but without broadcast; see: recurrent.jl#flip(f, xs)
     # y = map^-1(f(map(x))) or map(x) |> f |> map^-1
-    apply(l) = p.inv[l](p.layers[l](p.map[l](xs)))
+    apply(l::Int) = p.inv[l](p.layers[l](p.map[l](xs)))
     
     # implicit mapping
-    Z = map(l -> apply(l), eachindex(p.layers))
+    if p.distributed
+        Z = Distributed.pmap(apply, eachindex(p.layers))
+    else
+        Z = map(apply, eachindex(p.layers))
+    end
 
     # explicit mapping - preallocated size
     # first = apply(1)
@@ -191,7 +198,7 @@ end
 #  "SPEECH RECOGNITION WITH DEEP RECURRENT NEURAL NETWORKS" https://arxiv.org/pdf/1303.5778.pdf
 #  "Bidirectional LSTM-CRF Models for Sequence Tagging" https://arxiv.org/pdf/1508.01991.pdf
 #  Bidirectional layer of Keras: https://github.com/keras-team/keras/blob/05d713504852b490afcf2607aea1ce923e93ecfe/keras/layers/wrappers.py#L333
-function Bi(layer::Recur, reduce::Function = concat)
+function Bi(layer::Recur; reduce::Function=concat, distributed=false)
     mapping = Dict{Int64,Function}(2 => reverse)
     Parallel([layer, deepcopy(layer)], map=mapping, inv=mapping, reduce=reduce)
 end
